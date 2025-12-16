@@ -1,0 +1,8 @@
+# Data / fichiers lourds
+data/
+data_baseline/data/
+*.pkl
+*.csv
+
+
+
