@@ -8,9 +8,9 @@ from torch.utils.data import DataLoader
 
 from torch_geometric.data import Batch
 from torch_geometric.nn import (
-    # Message passing
+
     GINEConv, TransformerConv,
-    # Pooling
+
     global_mean_pool, global_max_pool, global_add_pool,
     AttentionalAggregation, Set2Set,
     JumpingKnowledge,
@@ -21,9 +21,6 @@ from data_utils import (
     PreprocessedGraphDataset, collate_fn
 )
 
-# =========================================================
-# CONFIG - VERSION RAPIDE (same structure as your script)
-# =========================================================
 BASE = os.path.expanduser("~/")
 
 TRAIN_GRAPHS = os.path.join(BASE, "train_graphs.pkl")
@@ -47,13 +44,13 @@ DROPOUT = 0.1
 USE_EDGE_FEATURES = True
 
 # Architecture switches (simple knobs)
-ARCH = "transformer"          # "gine" or "transformer"
+ARCH = "gine"          # "gine" or "transformer"
 POOL = "multipool"     # "multipool" | "attn" | "set2set"
-JK_MODE = "last"       # "last" | "cat" | "max"   (cat/max uses JumpingKnowledge)
+JK_MODE = "last"       # "last" | "cat" | "max"   
 
 
 # =========================================================
-# Small blocks (kept minimal)
+# Small blocks 
 # =========================================================
 class ResidualMLP(nn.Module):
     """Cheap stabilizer for the projection head."""
@@ -117,7 +114,7 @@ class BondFeatureEncoder(nn.Module):
 
 
 # =========================================================
-# Pooling options (same vibe as your script)
+# Pooling options
 # =========================================================
 class MultiPool(nn.Module):
     """Mean + Max + Add pooling (your current idea), with small post-layer."""
@@ -167,7 +164,7 @@ class Set2SetPool(nn.Module):
 
 
 # =========================================================
-# Encoder (drop-in replacement for your ImprovedMolGNN)
+# Encoder
 # =========================================================
 class ImprovedMolGNN(nn.Module):
     """
@@ -218,7 +215,7 @@ class ImprovedMolGNN(nn.Module):
                 )
                 self.norms.append(nn.LayerNorm(hidden))
         else:
-            # Default: GINEConv (strong + stable on molecules).
+            
             for _ in range(layers):
                 nn_msg = nn.Sequential(
                     nn.Linear(hidden, hidden),
@@ -297,7 +294,7 @@ class ImprovedMolGNN(nn.Module):
 
 
 # =========================================================
-# LOSS (keep yours)
+# LOSS 
 # =========================================================
 class ImprovedContrastiveLoss(nn.Module):
     """
@@ -321,7 +318,7 @@ class ImprovedContrastiveLoss(nn.Module):
 
 
 # =========================================================
-# Training / Eval (same as your structure)
+# Training / Eval 
 # =========================================================
 def train_epoch(mol_enc, loader, optimizer, criterion, device, scheduler=None):
     mol_enc.train()
@@ -380,7 +377,7 @@ def eval_retrieval(data_path, emb_dict, mol_enc, device):
 
 
 # =========================================================
-# Main (same as your structure)
+# Main 
 # =========================================================
 def main():
     print(f"Device: {DEVICE}")
@@ -406,7 +403,6 @@ def main():
         pin_memory=True,
     )
 
-    # ---- Encoder: drop-in replacement ----
     mol_enc = ImprovedMolGNN(
         hidden=HIDDEN_DIM,
         out_dim=emb_dim,
@@ -481,7 +477,7 @@ def main():
         else:
             print(f"Epoch {ep+1}/{EPOCHS} - loss={train_loss:.4f}")
 
-    model_path = "model_long_transformers_ne.pt"
+    model_path = "model_output.pt"
     checkpoint = {
                     'model_state_dict': mol_enc.state_dict(),
                     'config': {

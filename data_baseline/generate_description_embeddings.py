@@ -14,24 +14,23 @@ import warnings
 import json
 warnings.filterwarnings('ignore')
 
-# Configuration
+
 MAX_TOKEN_LENGTH = 512
 BASE = os.path.expanduser("~/")
 TRAIN_GRAPHS = os.path.join(BASE, "train_graphs.pkl")
 VAL_GRAPHS = os.path.join(BASE, "validation_graphs.pkl")
 
-# Model options with descriptions
+
 MODEL_CHOICES = {
     'bert_base': 'bert-base-uncased',
     'scibert': 'allenai/scibert_scivocab_uncased',
     'biobert': 'dmis-lab/biobert-v1.1',
     'mpnet': 'sentence-transformers/all-mpnet-base-v2',
     'deberta': 'microsoft/deberta-base',
-    'distilbert': 'distilbert-base-uncased',  # Plus rapide
+    'distilbert': 'distilbert-base-uncased',  
 }
 
 
-# Ajoute cette classe après les imports
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, (np.floating, np.float32, np.float64)):
@@ -56,7 +55,6 @@ class EnhancedBertEmbeddings:
         self.model_name = model_name
         self.model_path = MODEL_CHOICES.get(model_name, 'bert-base-uncased')
         
-        # Set device
         if device == 'auto':
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         else:
@@ -237,7 +235,7 @@ def post_process_embeddings(embeddings: np.ndarray, method: str = 'normalize') -
         return pca.fit_transform(standardized)
     
     elif method == 'pca':
-        # Dimensionality reduction
+        
         from sklearn.decomposition import PCA
         
         n_components = min(768, embeddings.shape[1])
@@ -268,27 +266,15 @@ def save_embeddings(ids: List[str],
             'embedding': embedding_strs
         })
         result.to_csv(output_path, index=False)
-        
-    elif save_format == 'npy':
-        # Save as numpy array with IDs
-        embeddings_array = np.stack(embeddings_list)
-        np.savez(output_path, ids=ids, embeddings=embeddings_array)
-        
-    elif save_format == 'pkl':
-        # Save as pickle
-        with open(output_path, 'wb') as f:
-            pickle.dump({'ids': ids, 'embeddings': embeddings_list}, f)
-    
-    print(f"Saved {len(ids)} embeddings to {output_path}")
 
 def main():
     """Main function to generate embeddings for train and validation sets."""
     
     # Configuration
-    MODEL_NAME = 'mpnet'  # Options: bert_base, scibert, biobert, mpnet, deberta, distilbert
+    MODEL_NAME = 'scibert'  # Options: bert_base, scibert, biobert, mpnet, deberta, distilbert
     POOLING_STRATEGY = 'mean'  # Options: cls, mean, max, weighted, hierarchical, all
     POST_PROCESSING = 'normalize'  # Options: none, normalize, whiten, pca
-    SAVE_FORMAT = 'csv'  # Options: csv, npy, pkl
+    SAVE_FORMAT = 'csv' 
     
     # Initialize embedding generator
     print("=" * 60)
@@ -302,13 +288,11 @@ def main():
     
     embedder = EnhancedBertEmbeddings(model_name=MODEL_NAME, device='auto')
     
-    # Process each split
     for split in ['train', 'validation']:
         print(f"\n{'='*40}")
         print(f"Processing {split} set...")
         print(f"{'='*40}")
         
-        # Load graphs
         if split == 'train':
             pkl_path = TRAIN_GRAPHS
         else:
@@ -319,7 +303,6 @@ def main():
             graphs = pickle.load(f)
         print(f"Loaded {len(graphs)} graphs")
         
-        # Generate embeddings
         ids = []
         all_embeddings = []
         failed_descriptions = 0
@@ -417,7 +400,6 @@ def benchmark_strategies():
     print("Benchmarking different embedding strategies")
     print("="*60)
     
-    # Test on a small subset
     with open(TRAIN_GRAPHS, 'rb') as f:
         graphs = pickle.load(f)
     
@@ -438,8 +420,7 @@ def benchmark_strategies():
             embeddings = []
             times = []
             
-            for graph in test_graphs[:10]:  # Test on 10 samples
-                import time
+            for graph in test_graphs[:10]:  
                 start_time = time.time()
                 
                 try:
@@ -473,10 +454,8 @@ def benchmark_strategies():
     return results
 
 if __name__ == "__main__":
-    # Run benchmark first to compare strategies
     benchmark_strategies()
     
-    # Generate embeddings for train and validation
     main()
     
     print("\n" + "="*60)
