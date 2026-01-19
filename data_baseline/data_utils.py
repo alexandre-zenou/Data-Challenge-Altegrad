@@ -2,19 +2,17 @@
 Data loading and processing utilities for molecule-text retrieval.
 Includes dataset classes and data loading functions.
 """
+
 from typing import Dict
 import pickle
-
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
 from torch_geometric.data import Batch
-
-
-# =========================================================
-# Feature maps for atom and bond attributes
-# =========================================================
 from typing import Dict, List, Any
+
+# Feature mappings for atoms and bondsa
+
 
 x_map: Dict[str, List[Any]] = {
     'atomic_num': list(range(0, 119)),
@@ -48,9 +46,8 @@ e_map: Dict[str, List[Any]] = {
 }
 
 
-# =========================================================
 # Load precomputed text embeddings
-# =========================================================
+
 def load_id2emb(csv_path: str) -> Dict[str, torch.Tensor]:
     """
     Load precomputed text embeddings from CSV file.
@@ -72,9 +69,8 @@ def load_id2emb(csv_path: str) -> Dict[str, torch.Tensor]:
     return id2emb
 
 
-# =========================================================
 # Load descriptions from preprocessed graphs
-# =========================================================
+
 def load_descriptions_from_graphs(graph_path: str) -> Dict[str, str]:
     """
     Load ID to description mapping from preprocessed graph file.
@@ -95,9 +91,8 @@ def load_descriptions_from_graphs(graph_path: str) -> Dict[str, str]:
     return id2desc
 
 
-# =========================================================
 # Dataset that loads preprocessed graphs and text embeddings
-# =========================================================
+
 class PreprocessedGraphDataset(Dataset):
     """
     Dataset that loads pre-saved molecule graphs with optional text embeddings.

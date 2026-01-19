@@ -21,14 +21,18 @@ from data_utils import (
     PreprocessedGraphDataset, collate_fn
 )
 
-BASE = os.path.expanduser("~/")
+# Data loader
+
+BASE = os.path.expanduser("/home/onyxia/work/DataChallengeAltegrad/data_baseline/")
 
 TRAIN_GRAPHS = os.path.join(BASE, "train_graphs.pkl")
 VAL_GRAPHS   = os.path.join(BASE, "validation_graphs.pkl")
 TEST_GRAPHS  = os.path.join(BASE, "test_graphs.pkl")
 
-TRAIN_EMB_CSV = os.path.join(BASE, "train_embeddings_scibert_mean_normalize.csv")
-VAL_EMB_CSV   = os.path.join(BASE, "validation_embeddings_scibert_mean_normalize.csv")
+TRAIN_EMB_CSV = os.path.join("/home/onyxia/work/DataChallengeAltegrad/data_baseline/train_embeddings_ensemble_chimberta_gte_large.csv")
+VAL_EMB_CSV   = os.path.join("home/onyxia/work/DataChallengeAltegrad/data_baseline/validation_embeddings_ensemble_chimberta_gte_large.csv")
+
+# Configuration 
 
 # Training parameters
 BATCH_SIZE = 32
@@ -43,15 +47,13 @@ NUM_LAYERS = 4
 DROPOUT = 0.1
 USE_EDGE_FEATURES = True
 
-# Architecture switches (simple knobs)
-ARCH = "gine"          # "gine" or "transformer"
-POOL = "multipool"     # "multipool" | "attn" | "set2set"
-JK_MODE = "last"       # "last" | "cat" | "max"   
+# Architecture possibilites (simple knobs)
+ARCH = "gine"          
+POOL = "multipool"    
+JK_MODE = "last"      
 
+# Modelling components
 
-# =========================================================
-# Small blocks 
-# =========================================================
 class ResidualMLP(nn.Module):
     """Cheap stabilizer for the projection head."""
     def __init__(self, dim: int, dropout: float = 0.1):
@@ -68,25 +70,22 @@ class ResidualMLP(nn.Module):
     def forward(self, x):
         return x + self.ff(self.norm(x))
 
-
 class AtomFeatureEncoder(nn.Module):
     """
-    More expressive than summing embeddings:
-    concat 9 embeddings -> linear projection.
-    Expects batch.x: [num_nodes, 9] ints.
+    We using the nodes features that were not taken into account by the first architecture.
     """
     def __init__(self, hidden: int):
         super().__init__()
         self.embeds = nn.ModuleList([
-            nn.Embedding(119, hidden),  # atomic_num
-            nn.Embedding(10, hidden),   # chirality
-            nn.Embedding(11, hidden),   # degree
-            nn.Embedding(12, hidden),   # formal_charge
-            nn.Embedding(9, hidden),    # num_hs
-            nn.Embedding(5, hidden),    # num_radical_electrons
-            nn.Embedding(8, hidden),    # hybridization
-            nn.Embedding(2, hidden),    # is_aromatic
-            nn.Embedding(2, hidden),    # is_in_ring
+            nn.Embedding(119, hidden),  
+            nn.Embedding(10, hidden),   
+            nn.Embedding(11, hidden),   
+            nn.Embedding(12, hidden),   
+            nn.Embedding(9, hidden),    
+            nn.Embedding(5, hidden),    
+            nn.Embedding(8, hidden),   
+            nn.Embedding(2, hidden),  
+            nn.Embedding(2, hidden),    
         ])
         self.proj = nn.Linear(hidden * len(self.embeds), hidden)
 
@@ -97,14 +96,14 @@ class AtomFeatureEncoder(nn.Module):
 
 class BondFeatureEncoder(nn.Module):
     """
-    Expects batch.edge_attr: [num_edges, 3] ints.
+    We using the edges features that were not taken into account by the first architecture.
     """
     def __init__(self, hidden: int):
         super().__init__()
         self.embeds = nn.ModuleList([
-            nn.Embedding(23, hidden),  # bond_type
-            nn.Embedding(7, hidden),   # stereo
-            nn.Embedding(2, hidden),   # is_conjugated
+            nn.Embedding(23, hidden),  
+            nn.Embedding(7, hidden),  
+            nn.Embedding(2, hidden),   
         ])
         self.proj = nn.Linear(hidden * len(self.embeds), hidden)
 
@@ -112,12 +111,10 @@ class BondFeatureEncoder(nn.Module):
         parts = [emb(e_cat[:, i]) for i, emb in enumerate(self.embeds)]
         return self.proj(torch.cat(parts, dim=-1))
 
+# Pooling options 
 
-# =========================================================
-# Pooling options
-# =========================================================
 class MultiPool(nn.Module):
-    """Mean + Max + Add pooling (your current idea), with small post-layer."""
+    """Mean + Max + Add pooling with small post-layer."""
     def __init__(self, hidden: int, dropout: float = 0.1):
         super().__init__()
         self.out_dim = hidden * 3
@@ -163,18 +160,10 @@ class Set2SetPool(nn.Module):
         return self.pool(h, batch_vec)
 
 
-# =========================================================
-# Encoder
-# =========================================================
+# New encoder model
+
 class ImprovedMolGNN(nn.Module):
-    """
-    Same external API as your ImprovedMolGNN, but with:
-    - Better message passing: GINEConv (edge-aware) OR TransformerConv (edge-aware)
-    - Better node/edge encoding: concat embeddings + linear (cheap, expressive)
-    - Optional JumpingKnowledge
-    - Flexible pooling (multipool / attention / set2set)
-    - LayerNorm (often more stable for retrieval than BatchNorm)
-    """
+
     def __init__(
         self,
         hidden: int = 256,
@@ -200,7 +189,7 @@ class ImprovedMolGNN(nn.Module):
         self.norms = nn.ModuleList()
 
         if self.arch == "transformer":
-            # TransformerConv is slightly heavier; keep heads modest.
+        
             assert hidden % heads == 0, "hidden must be divisible by heads"
             for _ in range(layers):
                 self.convs.append(
@@ -242,16 +231,13 @@ class ImprovedMolGNN(nn.Module):
 
         pooled_dim = self.pool.out_dim
         if self.jk is not None and self.jk_mode == "cat":
-            # After JK-cat, node dim is hidden * layers.
-            # Pool dims scale accordingly.
             if isinstance(self.pool, MultiPool):
                 pooled_dim = (hidden * layers) * 3
             elif isinstance(self.pool, Set2SetPool):
                 pooled_dim = (hidden * layers) * 2
-            else:  # AttentionPool
+            else:  
                 pooled_dim = (hidden * layers)
 
-        # Projection head (LayerNorm-based)
         self.projection = nn.Sequential(
             nn.Linear(pooled_dim, hidden * 2),
             nn.LayerNorm(hidden * 2),
@@ -262,10 +248,9 @@ class ImprovedMolGNN(nn.Module):
         )
 
     def forward(self, batch: Batch) -> torch.Tensor:
-        # Node features
+
         h = self.atom_enc(batch.x)
 
-        # Edge features (optional)
         e = None
         if self.use_edge_feat and getattr(batch, "edge_attr", None) is not None:
             e = self.bond_enc(batch.edge_attr)
@@ -273,10 +258,9 @@ class ImprovedMolGNN(nn.Module):
         hs = []
         for conv, norm in zip(self.convs, self.norms):
             if self.arch == "transformer":
-                # TransformerConv signature: conv(x, edge_index, edge_attr)
+
                 h = conv(h, batch.edge_index, e) if e is not None else conv(h, batch.edge_index)
             else:
-                # GINEConv signature: conv(x, edge_index, edge_attr)
                 h = conv(h, batch.edge_index, e) if e is not None else conv(h, batch.edge_index)
             h = norm(h)
             h = F.gelu(h)
@@ -293,12 +277,11 @@ class ImprovedMolGNN(nn.Module):
         return F.normalize(out, dim=-1)
 
 
-# =========================================================
-# LOSS 
-# =========================================================
+# LOos s function
+
 class ImprovedContrastiveLoss(nn.Module):
     """
-    Symmetric NT-Xent loss (InfoNCE).
+    We create a new contrastive loss to replace the old MSE, it is better suited in our case.
     """
     def __init__(self, temperature: float = 0.07):
         super().__init__()
@@ -317,9 +300,8 @@ class ImprovedContrastiveLoss(nn.Module):
         return 0.5 * (loss_m2t + loss_t2m)
 
 
-# =========================================================
-# Training / Eval 
-# =========================================================
+# Training and evaluation 
+
 def train_epoch(mol_enc, loader, optimizer, criterion, device, scheduler=None):
     mol_enc.train()
     total_loss, total = 0.0, 0
@@ -376,9 +358,7 @@ def eval_retrieval(data_path, emb_dict, mol_enc, device):
     return results
 
 
-# =========================================================
-# Main 
-# =========================================================
+
 def main():
     print(f"Device: {DEVICE}")
 
@@ -431,6 +411,8 @@ def main():
         anneal_strategy="cos",
     )
 
+    # Validation part, we measure MRR
+
     best_mrr = 0.0
     patience = 5
     patience_counter = 0
@@ -461,7 +443,7 @@ def main():
                 }
                 torch.save(checkpoint, "best_model.pt")
 
-                print(f"✓ New best model saved (MRR: {best_mrr:.4f})")
+                print(f"New best model saved (MRR: {best_mrr:.4f})")
             else:
                 patience_counter += 1
 
