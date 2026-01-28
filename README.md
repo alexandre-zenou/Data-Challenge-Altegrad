@@ -1,7 +1,7 @@
 # Molecule-Text Retrieval
 
-Project for the ALTEGRAD (Advanced AI for Texts and Graphs) class in the Master Data Science of IP Paris. 
-Realized by Antoine Gilson, Paul Lemoine Vandermoere and Alexandre Zenou. 
+Project for the ALTEGRAD (Advanced AI for Texts and Graphs) class in the Master Data Science of Ecole Polytechnique. 
+Realized by Antoine Gilson, Paul Lemoine Vandermoere and Alexandre Zenou supervised by Michalis Vazirgiannis.
 
 Graph neural network for molecular graph and text description retrieval.
 
